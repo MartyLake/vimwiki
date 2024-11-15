@@ -1028,7 +1028,7 @@ function! s:process_tag_list(line, lists, lstLeadingSpaces) abort
         let st_tag = '<li class="done'.completion.'">'
       endif
     endif
-    return [st_tag, '']
+    return [st_tag, '</li>']
   endfunction
 
 
