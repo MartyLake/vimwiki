@@ -10,6 +10,8 @@
     - [Pathogen](#installation-using-pathogen)
     - [Vim-Plug](#installation-using-vim-plug)
     - [Vundle](#installation-using-vundle)
+    - [Lazy](#installation-using-lazy)
+
 - [Basic Markup](#basic-markup)
     - [Lists](#lists)
 - [Key Bindings](#key-bindings)
@@ -140,6 +142,24 @@ Add `Plugin 'vimwiki/vimwiki'` to your vimrc file and run:
 
 vim +PluginInstall +qall
 
+```
+
+#### Installation using [Lazy](https://github.com/folke/lazy.nvim)
+
+Add repository within `require('lazy').setup` call in your vimrc (or for plugins file ie. /lua/plugins/, do the same within a `return{}` statement)
+{
+'vimwiki/vimwiki'
+}
+
+Declare global variables **before** plugins are loaded (above `require('lazy').setup({}`),
+
+For example:
+
+``` lua
+-- Set markdown as default in vimwiki folder in home
+vim.g.vimwiki_path = '~/vimwiki/'
+vim.g.vimwiki_syntax = 'markdown'
+vim.g.vimwiki_ext = 'md'
 ```
 
 #### Manual Install
