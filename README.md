@@ -146,7 +146,14 @@ vim +PluginInstall +qall
 
 #### Installation using [Lazy](https://github.com/folke/lazy.nvim)
 
-Add repository within `require('lazy').setup` call in your vimrc (or for plugins file ie. /lua/plugins/, do the same within a `return{}` statement)
+Add repository within `require('lazy').setup` call in your vimrc (or for plugins file ie. /lua/plugins/, do the same within a `return{}` statement).
+
+If you are unfamiliar with lua, note that the brackets `{`, `}` need a closing comma (`},`) if you are adding this to an existing function like the .setup call.
+
+```   { 'vimwiki/vimwiki' } ```
+
+**Example with options (Change syntax to markdown)**:
+
 ``` lua
 {
   'vimwiki/vimwiki',
