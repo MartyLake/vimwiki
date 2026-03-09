@@ -523,6 +523,7 @@ function! s:get_default_wikilocal() abort
         \ 'nested_syntaxes': {'type': type({}), 'default': {}},
         \ 'path': {'type': type(''), 'default': $HOME . '/vimwiki/', 'min_length': 1},
         \ 'path_html': {'type': type(''), 'default': ''},
+        \ 'pandoc_args': {'type': type(''), 'default': ''},
         \ 'rss_max_items': {'type': type(0), 'default': 10, 'min': 0},
         \ 'rss_name': {'type': type(''), 'default': 'rss.xml', 'min_length': 1},
         \ 'syntax': {'type': type(''), 'default': 'default',

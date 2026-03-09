@@ -1712,6 +1712,278 @@ function! vimwiki#html#CustomWiki2HTML(root_path, path, wikifile, force) abort
   endif
 endfunction
 
+
+function! s:is_markdown_pandoc() abort
+  return vimwiki#vars#get_wikilocal('syntax') ==? 'markdown'
+        \ && executable('pandoc')
+endfunction
+
+
+function! s:pandoc_parse_yaml_frontmatter(lines) abort
+  let result = {'title': '', 'date': '', 'template': '', 'body_start': 0}
+
+  if empty(a:lines) || a:lines[0] !~# '^---\s*$'
+    return result
+  endif
+
+  let i = 1
+  while i < len(a:lines)
+    let line = a:lines[i]
+    if line =~# '^\(---\|...\)\s*$'
+      let result['body_start'] = i + 1
+      break
+    endif
+
+    if line =~# '^title:\s*'
+      let title = substitute(line, '^title:\s*', '', '')
+      " Strip surrounding quotes if present
+      if title =~# "^['\"]"
+        let title = title[1:-2]
+      endif
+      let result['title'] = title
+    elseif line =~# '^date:\s*'
+      let date = substitute(line, '^date:\s*', '', '')
+      " Strip surrounding quotes if present
+      if date =~# "^['\"]"
+        let date = date[1:-2]
+      endif
+      let result['date'] = date
+    elseif line =~# '^template:\s*'
+      let template = substitute(line, '^template:\s*', '', '')
+      " Strip surrounding quotes if present
+      if template =~# "^['\"]"
+        let template = template[1:-2]
+      endif
+      let result['template'] = template
+    endif
+
+    let i += 1
+  endwhile
+
+  return result
+endfunction
+
+
+function! s:pandoc_wikilink_href(target) abort
+  let target = a:target
+
+  " External URLs and fragments are untouched
+  if target =~# '^\%(https\?://\|ftp://\|mailto:\|#\)'
+    return target
+  endif
+
+  " Check for explicit non-markdown extension
+  if target =~# '\.\w\{1,6}$' && target !~# '\.md$'
+    return target
+  endif
+
+  " Handle anchor links
+  if target =~# '#'
+    let parts = split(target, '#', 1)
+    let page = parts[0]
+    let anchor = parts[1]
+
+    if page ==? ''
+      return target
+    endif
+
+    " Process page part
+    if page =~# '\.md$'
+      let page = substitute(page, '\.md$', '.html', '')
+    else
+      let page = page . '.html'
+    endif
+
+    return page . '#' . anchor
+  endif
+
+  " Bare name or .md file
+  if target =~# '\.md$'
+    return substitute(target, '\.md$', '.html', '')
+  else
+    return target . '.html'
+  endif
+endfunction
+
+
+function! s:pandoc_rewrite_wikilinks(lines) abort
+  let result = []
+  let in_fence = 0
+
+  for line in a:lines
+    " Track fence state
+    if line =~# '^\s*\(```\|\~\~\~\)'
+      let in_fence = !in_fence
+      call add(result, line)
+      continue
+    endif
+
+    " Skip rewriting inside code blocks
+    if in_fence
+      call add(result, line)
+      continue
+    endif
+
+    " Rewrite wikilinks using simple character-by-character approach
+    let result_line = ''
+    let i = 0
+    let len_line = len(line)
+
+    while i < len_line
+      if i + 1 < len_line && line[i : i+1] ==# '[['
+        " Found start of wikilink, find the end
+        let end_idx = stridx(line, ']]', i + 2)
+        if end_idx >= 0
+          " Extract wikilink content
+          let content = line[i+2 : end_idx-1]
+          " Parse target|description
+          let pipe_idx = stridx(content, '|')
+          if pipe_idx >= 0
+            let target = content[0 : pipe_idx-1]
+            let description = content[pipe_idx+1 : ]
+          else
+            let target = content
+            let description = content
+          endif
+          let href = s:pandoc_wikilink_href(target)
+          let result_line .= '[' . description . '](' . href . ')'
+          let i = end_idx + 2
+          continue
+        endif
+      endif
+      let result_line .= line[i]
+      let i += 1
+    endwhile
+
+    call add(result, result_line)
+  endfor
+
+  return result
+endfunction
+
+
+function! s:pandoc_rewrite_md_links(html_lines) abort
+  let result = []
+  for line in a:html_lines
+    " Match: href="path.md" or href="path.md#anchor"
+    let modified = substitute(line, 'href="\([^"]*\)\.md\(#[^"]*\)\?"', 'href="\1.html\2"', 'g')
+    call add(result, modified)
+  endfor
+  return result
+endfunction
+
+
+function! s:convert_file_pandoc(wikifile) abort
+  let result = {'html': [], 'template_name': '', 'title': '', 'date': '', 'wiki_path': '', 'nohtml': 0}
+
+  try
+    " Read source file
+    let lsource = readfile(a:wikifile)
+
+    " Parse YAML frontmatter
+    let meta = s:pandoc_parse_yaml_frontmatter(lsource)
+    let body_start = meta['body_start']
+
+    " Use body starting after frontmatter, or all lines if no frontmatter
+    if body_start > 0
+      let lbody = lsource[body_start - 1 : ]
+    else
+      let lbody = lsource
+    endif
+
+    " Rewrite wikilinks before pandoc
+    let lbody = s:pandoc_rewrite_wikilinks(lbody)
+
+    " Write to temporary file
+    let tmpfile = tempname() . '.md'
+    call writefile(lbody, tmpfile)
+
+    " Build pandoc command
+    let pandoc_args = vimwiki#vars#get_wikilocal('pandoc_args')
+    let cmd = 'pandoc --from=markdown+yaml_metadata_block --to=html5 --wrap=none'
+    if !empty(pandoc_args)
+      let cmd .= ' ' . pandoc_args
+    endif
+    let cmd .= ' ' . shellescape(tmpfile) . ' 2>/dev/null'
+
+    " Run pandoc
+    let html_output = system(cmd)
+
+    " Clean up temp file
+    call delete(tmpfile)
+
+    " Check for errors
+    if v:shell_error != 0
+      call vimwiki#u#error('Pandoc conversion failed: ' . html_output)
+      return result
+    endif
+
+    " Parse output
+    let html_lines = split(html_output, "\n")
+
+    " Rewrite .md links to .html in output
+    let html_lines = s:pandoc_rewrite_md_links(html_lines)
+
+    " Build result dict
+    let result['html'] = html_lines
+    let result['template_name'] = meta['template']
+    let result['title'] = !empty(meta['title']) ? meta['title'] :
+          \ fnamemodify(a:wikifile, ':t:r')
+    let result['date'] = !empty(meta['date']) ? meta['date'] :
+          \ strftime(vimwiki#vars#get_wikilocal('template_date_format'))
+
+    " Calculate wiki_path (relative path from wiki root)
+    let wiki_root = expand(vimwiki#vars#get_wikilocal('path'))
+    let rel_path = fnamemodify(a:wikifile, ':.')
+    let result['wiki_path'] = substitute(rel_path, '[/\\]\?[^/\\]*$', '', '')
+
+    return result
+  catch
+    call vimwiki#u#error('Pandoc conversion error: ' . v:exception)
+    return result
+  endtry
+endfunction
+
+
+function! s:convert_file_pandoc_template(wikifile, current_html_file) abort
+  let converted = s:convert_file_pandoc(a:wikifile)
+
+  if converted['nohtml'] == 1
+    return []
+  endif
+
+  if empty(converted['html'])
+    return []
+  endif
+
+  let html_lines = s:get_html_template(converted['template_name'])
+
+  " Process template variables (same as s:convert_file_to_lines_template)
+  call map(html_lines, 'substitute(v:val, "%title%", converted["title"], "g")')
+  call map(html_lines, 'substitute(v:val, "%date%", converted["date"], "g")')
+  call map(html_lines, 'substitute(v:val, "%root_path%", "'.
+        \ s:root_path(vimwiki#vars#get_bufferlocal('subdir')) .'", "g")')
+  call map(html_lines, 'substitute(v:val, "%wiki_path%", converted["wiki_path"], "g")')
+
+  let css_name = expand(vimwiki#vars#get_wikilocal('css_name'))
+  let css_name = substitute(css_name, '\', '/', 'g')
+  call map(html_lines, 'substitute(v:val, "%css%", css_name, "g")')
+
+  let rss_name = expand(vimwiki#vars#get_wikilocal('rss_name'))
+  let rss_name = substitute(rss_name, '\', '/', 'g')
+  call map(html_lines, 'substitute(v:val, "%rss%", rss_name, "g")')
+
+  let enc = &fileencoding
+  if enc ==? ''
+    let enc = &encoding
+  endif
+  call map(html_lines, 'substitute(v:val, "%encoding%", enc, "g")')
+
+  let html_lines = s:html_insert_contents(html_lines, converted['html'])
+
+  return html_lines
+endfunction
+
 function! s:convert_file_to_lines(wikifile, current_html_file) abort
   let result = {}
 
@@ -1909,8 +2181,22 @@ function! s:convert_file(path_html, wikifile) abort
     return path_html . htmlfile
   endif
 
-  call vimwiki#u#error('Conversion to HTML is not supported for this syntax')
-  return ''
+  " Markdown + pandoc path
+  if s:is_markdown_pandoc() && done == 0
+    let html_lines = s:convert_file_pandoc_template(wikifile, path_html . htmlfile)
+    if empty(html_lines)
+      return ''
+    endif
+    call vimwiki#path#mkdir(path_html)
+    call writefile(html_lines, path_html.htmlfile)
+    let done = 1
+  endif
+
+  if done == 0
+    call vimwiki#u#error('Conversion to HTML is not supported for this syntax.'
+          \ . ' For markdown syntax, install pandoc (https://pandoc.org).')
+  endif
+  return done ? path_html . htmlfile : ''
 endfunction
 
 
@@ -1924,7 +2210,7 @@ endfunction
 
 
 function! vimwiki#html#WikiAll2HTML(path_html, force) abort
-  if !s:syntax_supported() && !s:use_custom_wiki2html()
+  if !s:syntax_supported() && !s:use_custom_wiki2html() && !s:is_markdown_pandoc()
     call vimwiki#u#error('Conversion to HTML is not supported for this syntax')
     return
   endif

@@ -1,0 +1,162 @@
+# Conversion: Markdown -> Html via Pandoc
+# Tests for pandoc-based HTML export for markdown-syntax wikis
+
+Execute (Skip all tests if pandoc is not available):
+  if !executable('pandoc')
+    Log 'pandoc not installed, skipping tests'
+    call vimwiki#u#echo('Skipping markdown pandoc tests: pandoc not found')
+  endif
+
+#################################################
+Given vimwiki (Basic paragraph):
+  This is a simple paragraph with some text.
+
+Execute (Basic markdown syntax check):
+  if !executable('pandoc')
+    SKIP
+  endif
+  call SetSyntax('markdown')
+  call ConvertWiki2Html()
+
+Expect (Paragraph wrapped in tags):
+  <p>This is a simple paragraph with some text.</p>
+
+#################################################
+Given vimwiki (WikiLink basic):
+  [[TestPage]]
+
+Execute (WikiLink conversion):
+  if !executable('pandoc')
+    SKIP
+  endif
+  call SetSyntax('markdown')
+  call ConvertWiki2Html()
+
+Expect (WikiLink to HTML link):
+  <p><a href="TestPage.html">TestPage</a></p>
+
+#################################################
+Given vimwiki (WikiLink with description):
+  [[TestPage|Click here]]
+
+Execute (WikiLink with description):
+  if !executable('pandoc')
+    SKIP
+  endif
+  call SetSyntax('markdown')
+  call ConvertWiki2Html()
+
+Expect (WikiLink with text):
+  <p><a href="TestPage.html">Click here</a></p>
+
+#################################################
+Given vimwiki (Markdown link):
+  [Google](https://google.com)
+
+Execute (External markdown link):
+  if !executable('pandoc')
+    SKIP
+  endif
+  call SetSyntax('markdown')
+  call ConvertWiki2Html()
+
+Expect (Markdown link unchanged):
+  <p><a href="https://google.com">Google</a></p>
+
+#################################################
+Given vimwiki (Markdown table):
+  | Header 1 | Header 2 |
+  |----------|----------|
+  | Value 1  | Value 2  |
+
+Execute (GFM table conversion):
+  if !executable('pandoc')
+    SKIP
+  endif
+  call SetSyntax('markdown')
+  call ConvertWiki2Html()
+
+Expect (Table in HTML):
+  <table>
+  <thead>
+  <tr>
+  <th>Header 1</th>
+  <th>Header 2</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr>
+  <td>Value 1</td>
+  <td>Value 2</td>
+  </tr>
+  </tbody>
+  </table>
+
+#################################################
+Given vimwiki (Code fence):
+  ```python
+  def hello():
+      print("Hello, World!")
+  ```
+
+Execute (Fenced code block):
+  if !executable('pandoc')
+    SKIP
+  endif
+  call SetSyntax('markdown')
+  call ConvertWiki2Html()
+
+Expect (Code block in HTML):
+  <pre class="python"><code>def hello():
+      print(&quot;Hello, World!&quot;)
+  </code></pre>
+
+#################################################
+Given vimwiki (YAML title):
+  ---
+  title: My Test Page
+  ---
+
+  Content here.
+
+Execute (YAML title extraction):
+  if !executable('pandoc')
+    SKIP
+  endif
+  call SetSyntax('markdown')
+  call ConvertWiki2Html()
+  Assert 0 != search('<title>My Test Page</title>')
+
+#################################################
+Given vimwiki (WikiLink in code block):
+  ```
+  This [[should]] not be converted
+  ```
+
+  But this [[should]] be converted.
+
+Execute (WikiLink in fence ignored):
+  if !executable('pandoc')
+    SKIP
+  endif
+  call SetSyntax('markdown')
+  call ConvertWiki2Html()
+  Assert 0 != search('This \[\[should\]\] not be converted')
+  Assert 0 != search('<a href="should.html">should</a>')
+
+#################################################
+Given vimwiki (WikiAll2HTML gate):
+  Some markdown content
+
+Execute (WikiAll2HTML works for markdown):
+  if !executable('pandoc')
+    SKIP
+  endif
+  call SetSyntax('markdown')
+  try
+    call vimwiki#html#WikiAll2HTML(expand('$HOME/html/markdown/'), 0)
+  catch
+    AssertEqual 'No error expected', v:exception
+  endtry
+
+# vim: sw=2 foldmethod=marker foldlevel=30

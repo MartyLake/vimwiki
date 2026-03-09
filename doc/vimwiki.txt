@@ -857,8 +857,9 @@ Vimwiki file.
     Jump to the next unfinished task in the current wiki page.
 
 *:Vimwiki2HTML*
-    Convert current wiki page to HTML using Vimwiki's own converter or a
-    user-supplied script (see |vimwiki-option-custom_wiki2html|).
+    Convert current wiki page to HTML using Vimwiki's own converter, a
+    user-supplied script (see |vimwiki-option-custom_wiki2html|), or for
+    markdown-syntax wikis, pandoc (if installed; see |vimwiki-markdown-html|).
 
 *:Vimwiki2HTMLBrowse*
     Convert current wiki page to HTML and open it in the webbrowser.
@@ -1033,7 +1034,40 @@ definitions and routines in syntax/vimwiki_xxx_custom.vim and
 autoload/vimwiki/xxx_base.vim.  Currently, only Markdown includes this level
 of support.
 
-Vimwiki2HTML is currently functional only for the default syntax.
+Vimwiki2HTML is currently functional for the default syntax, and for markdown
+syntax when pandoc is installed (see |vimwiki-markdown-html|).
+
+*vimwiki-markdown-html*
+Markdown HTML Conversion~
+
+For markdown-syntax wikis, HTML export is supported via pandoc
+(https://pandoc.org). Pandoc must be installed separately.
+
+When converting markdown to HTML, Vimwiki will:
+1. Parse YAML frontmatter to extract title, date, and template information
+2. Convert Vimwiki's wikilink syntax ([[WikiLink]]) to markdown links
+3. Use pandoc to convert markdown to HTML
+4. Rewrite .md file references to .html
+5. Apply the configured HTML template
+
+The conversion respects the following Vimwiki options:
+- |vimwiki-option-template_default|: HTML template to use
+- |vimwiki-option-template_path|: Path to template files
+- |vimwiki-option-template_date_format|: Format for %date% in templates
+- |vimwiki-option-pandoc_args|: Additional pandoc command-line arguments
+
+Example configuration: >
+  let g:vimwiki_list = [
+    \ {'path': '~/my_wiki/',
+    \  'syntax': 'markdown',
+    \  'pandoc_args': '--mathjax --bibliography refs.bib'}
+    \ ]
+
+Then use |:Vimwiki2HTML| to convert the current file, or |:VimwikiAll2HTML|
+to convert all files in the wiki.
+
+Note: Pandoc does not need to be installed to use Vimwiki for markdown editing;
+it is only required for HTML export functionality.
 
 ------------------------------------------------------------------------------
 5.1. Typefaces                                      *vimwiki-syntax-typefaces*
@@ -2245,6 +2279,27 @@ If path_html is an empty string, the location is derived from
   let g:vimwiki_list = [{'path': '~/okidoki/'}]
 
 path_html will be set to '~/okidoki_html/'.
+
+
+*vimwiki-option-pandoc_args*
+------------------------------------------------------------------------------
+Key             Default value~
+pandoc_args     ''
+
+Description~
+For markdown-syntax wikis, additional arguments to pass to pandoc during HTML
+conversion. This option is only used when converting markdown files to HTML
+using pandoc (which is automatically detected if available).
+
+Common uses include: >
+  let g:vimwiki_list = [{'path': '~/my_wiki/',
+                       \ 'syntax': 'markdown',
+                       \ 'pandoc_args': '--mathjax --bibliography refs.bib'}]
+
+Available pandoc options can be found at https://pandoc.org/
+
+Note: Some options like --from, --to, --no-highlight, and --wrap are
+automatically set by Vimwiki and should not be overridden.
 
 
 *vimwiki-option-name*
