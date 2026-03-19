@@ -3189,6 +3189,23 @@ Default: 0
 
 
 ------------------------------------------------------------------------------
+*g:vimwiki_markdown_fast_typeface*
+
+Trim markdown typeface syntax rules down to the common simple forms:
+`*italic*`, `_italic_`, `**bold**`, and `__bold__`.
+
+This keeps the default legacy behavior when unset. When enabled, Vimwiki skips
+the mixed emphasis rules such as `***bold italic***`, `*_italic_*`, and
+`_*italic*_`, which can noticeably reduce syntax time on large markdown wikis.
+
+Value           Description~
+0               Keep the full legacy markdown typeface rules.
+1               Keep only the simple markdown bold and italic rules.
+
+Default: 0
+
+
+------------------------------------------------------------------------------
 *VimwikiLinkHandler*
 
 A customizable link handler can be defined to override Vimwiki's behavior when
@@ -4041,6 +4058,9 @@ This is somewhat experimental, and will probably be refined over time.
 2024.01.24~
 
 New:~
+    * Add |g:vimwiki_markdown_fast_typeface| to keep simple markdown emphasis
+      while trimming the mixed emphasis syntax rules that are slow on large
+      files.
     * PR #1389: Document gLH, gl+, and gL+ mappings
     * Tidy some aspects of README.md, remove pointers to defunct Matrix
       channel and Google Group, add wikis.world Mastodon account.

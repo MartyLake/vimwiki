@@ -1,0 +1,36 @@
+# Test g:vimwiki_markdown_fast_typeface
+
+Given vimwiki (markdown typeface option):
+  **bold**
+  _italic_
+
+After (clean up):
+  if exists('g:vimwiki_markdown_fast_typeface')
+    unlet g:vimwiki_markdown_fast_typeface
+  endif
+  unlet! g:vimwiki_syntaxlocal_vars
+  call vimwiki#vars#init()
+
+Execute (default markdown keeps legacy typeface rules):
+  unlet! g:vimwiki_markdown_fast_typeface
+  unlet! g:vimwiki_syntaxlocal_vars
+  call vimwiki#vars#init()
+  call SetSyntax('markdown')
+  let typeface = vimwiki#vars#get_syntaxlocal('typeface')
+  AssertEqual 2, len(typeface['bold'])
+  AssertEqual 4, len(typeface['italic'])
+  AssertEqual 2, len(typeface['bold_italic'])
+
+Execute (fast markdown trims mixed typeface rules):
+  let g:vimwiki_markdown_fast_typeface = 1
+  unlet! g:vimwiki_syntaxlocal_vars
+  call vimwiki#vars#init()
+  call SetSyntax('markdown')
+  let typeface = vimwiki#vars#get_syntaxlocal('typeface')
+  AssertEqual 2, len(typeface['bold'])
+  AssertEqual 2, len(typeface['italic'])
+  AssertEqual 0, len(typeface['bold_italic'])
+
+Expect (void):
+  **bold**
+  _italic_
