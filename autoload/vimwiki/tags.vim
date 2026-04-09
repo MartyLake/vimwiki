@@ -47,6 +47,13 @@ function! vimwiki#tags#update_tags(full_rebuild, all_files) abort
     let wiki_base_dir = vimwiki#vars#get_wikilocal('path')
     let tags_file_last_modification = getftime(vimwiki#tags#metadata_file_path())
     let metadata = s:load_tags_metadata()
+    " Remove stale entries for files no longer on disk
+    let l:ext = vimwiki#vars#get_wikilocal('ext')
+    for pagename in keys(metadata)
+      if !filereadable(wiki_base_dir . pagename . l:ext)
+        call remove(metadata, pagename)
+      endif
+    endfor
     for file in files
       if all_files || getftime(file) >= tags_file_last_modification
         let subdir = vimwiki#base#subdir(wiki_base_dir, file)
