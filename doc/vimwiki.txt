@@ -980,6 +980,7 @@ Vimwiki file.
 *:VimwikiRebuildTags*
     Rebuilds the tags metadata file for all wiki files newer than the metadata
     file.
+    Stale entries for files that have been deleted or moved are removed automatically.  
     Necessary for all tags related commands: |vimwiki-syntax-tags|.
 
     :VimwikiRebuildTags! does the same for all files.
@@ -4019,6 +4020,7 @@ Contributors and their Github usernames in roughly chronological order:
     - @jiamingc
     - Alex Claman (@claman)
     - @qadzek
+    - Nathan Giard (@giardn)
 
 
 ==============================================================================
@@ -4036,6 +4038,13 @@ are accepted, they will merge directly to dev, which is now the main branch.
 master is retained as a legacy mirror of the dev branch.
 
 This is somewhat experimental, and will probably be refined over time.
+
+
+2026.04.08~
+
+Fixed:~
+    * Issue #795: VimwikiRebuildTags now removes stale entries for files
+      that have been deleted or moved
 
 
 2024.01.24~
